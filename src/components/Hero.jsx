@@ -1,19 +1,67 @@
-import React from 'react';
-import Spline from '@splinetool/react-spline';
+import React, { Suspense, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 
+// Lazy-load Spline to avoid heavy initialization during first paint and reduce crash risk in dev strict mode
+const LazySpline = React.lazy(() => import('@splinetool/react-spline'));
+
+// Simple error boundary so Spline failures don't crash the whole app
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch() {}
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-950">
+          <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-xs text-gray-300">
+            3D scene unavailable. Continue scrolling.
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function Hero() {
+  // Render Spline only after mount to avoid potential double-mount issues in dev
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
   return (
     <section id="home" className="relative min-h-[90vh] w-full overflow-hidden bg-gray-950 text-white">
+      {/* 3D Background */}
       <div className="absolute inset-0">
-        <Spline
-          scene="https://prod.spline.design/VJLoxp84lCdVfdZu/scene.splinecode"
-          style={{ width: '100%', height: '100%' }}
-        />
+        {mounted ? (
+          <ErrorBoundary>
+            <Suspense
+              fallback={
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-950/60">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                </div>
+              }
+            >
+              <LazySpline
+                scene="https://prod.spline.design/VJLoxp84lCdVfdZu/scene.splinecode"
+                style={{ width: '100%', height: '100%' }}
+              />
+            </Suspense>
+          </ErrorBoundary>
+        ) : null}
       </div>
 
-      <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-gray-950/60 via-gray-950/70 to-gray-950" />
+      {/* Gradient overlay must not block pointer events */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-gray-950/60 via-gray-950/70 to-gray-950" />
 
+      {/* Content */}
       <div className="relative z-10 mx-auto flex max-w-7xl flex-col items-start gap-8 px-6 py-28 sm:py-32 md:py-40">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -56,8 +104,9 @@ export default function Hero() {
         <motion.div
           id="about"
           initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.1 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.2 }}
+          transition={{ duration: 0.6, delay: 0.05 }}
           className="mt-4 grid w-full gap-4 rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur sm:grid-cols-3"
         >
           <div>
